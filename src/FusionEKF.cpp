@@ -81,6 +81,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     ekf_.x_ << 1, 1, 1, 1;
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+      cout << "Radar First Measurement" << endl;
       // TODO: Convert radar from polar to cartesian coordinates 
       //         and initialize state.
       float rho = measurement_pack.raw_measurements_(0);
@@ -89,11 +90,15 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
       ekf_.x_(0) = rho * cos(theta);
       ekf_.x_(1) = rho * sin(theta);
+
+      cout << "Radar First Measurement completed" << endl;
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
+      cout << "Laser First Measurement" << endl;
       // TODO: Initialize state.
       ekf_.x_(0) = measurement_pack.raw_measurements_(0);
       ekf_.x_(1) = measurement_pack.raw_measurements_(1);
+      cout << "Laser First Measurement Completed" << endl;
     }
 
     previous_timestamp_ = measurement_pack.timestamp_;
@@ -106,6 +111,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   /**
    * Prediction
    */
+  cout << "Prediction" << endl;
 
   // compute the time elapsed between the current and previous measurements
   // dt - expressed in seconds
@@ -137,9 +143,12 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
   ekf_.Predict();
 
+  cout << "Prediction completed" << endl;
+
   /**
    * Update
    */
+  cout << "Update" << endl;
 
   /**
    * TODO:
@@ -149,15 +158,21 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
     // TODO: Radar updates
+    cout << "Assigning Jacobian" << endl;
     ekf_.H_ = tools.CalculateJacobian(measurement_pack.raw_measurements_);
+    cout << "Assigning R_radar" << endl;
     ekf_.R_ = R_radar_;
     ekf_.UpdateEKF(measurement_pack.raw_measurements_);
   } else {
     // TODO: Laser updates
+    cout << "Assigning H_laser" << endl;
     ekf_.H_ = H_laser_;
+    cout << "Assigning R_laser" << endl;
     ekf_.R_ = R_laser_;
     ekf_.Update(measurement_pack.raw_measurements_);
   }
+
+  cout << "Update completed" << endl;
 
   // print the output
   cout << "x_ = " << ekf_.x_ << endl;
