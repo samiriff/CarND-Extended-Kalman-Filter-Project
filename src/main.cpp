@@ -1,3 +1,4 @@
+#define _MATH_DEFINES_DEFINED 
 #include <math.h>
 #include <uWS/uWS.h>
 #include <iostream>

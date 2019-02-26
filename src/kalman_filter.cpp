@@ -76,6 +76,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   z_pred << rho, theta, rhodot;
 
   VectorXd y = z - z_pred;
+  AdjustTheta(y);
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd PHt = P_ * Ht;
@@ -86,3 +87,12 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   MatrixXd I = MatrixXd::Identity(x_size, x_size);
   P_ = (I - K * H_) * P_;
 }
+
+void KalmanFilter::AdjustTheta(VectorXd &y) {
+  if (y(1) > M_PI) {
+    y(1) -= 2 * M_PI;
+  } else if (y(1) < -M_PI) {
+    y(1) += 2 * M_PI;
+  }
+}
+
