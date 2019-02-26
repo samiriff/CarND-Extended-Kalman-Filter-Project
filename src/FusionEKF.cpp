@@ -54,13 +54,9 @@ FusionEKF::FusionEKF() {
              0, 0, 1000, 0,
              0, 0, 0, 1000;
 
-  // Initializing state vector
-  ekf_.x_ = VectorXd(4);
-
   // Initializing noise values for the Process Covariance matrix
   noise_ax = 9;
   noise_ay = 9;
-
 }
 
 /**
