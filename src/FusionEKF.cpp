@@ -33,27 +33,31 @@ FusionEKF::FusionEKF() {
               0, 0, 0.09;
 
   /**
-   * TODO: Finish initializing the FusionEKF.
-   * TODO: Set the process and measurement noises
+   * Setting the process and measurement noises
    */
+  
+  // Initializing Laser Measurement Matrix 
   H_laser_ << 1, 0, 0, 0,
 	     0, 1, 0, 0;
 
-  ekf_.x_ = VectorXd(4);
-
+  // Initializing State Transition Matrix
   ekf_.F_ = MatrixXd(4, 4);
   ekf_.F_ << 1, 0, 1, 0,
              0, 1, 0, 1,
              0, 0, 1, 0,
              0, 0, 0, 1;
              
-  
+  // Initializing State Covariance Matrix
   ekf_.P_ = MatrixXd(4, 4);
   ekf_.P_ << 1, 0, 0, 0,
              0, 1, 0, 0,
              0, 0, 1000, 0,
              0, 0, 0, 1000;
 
+  // Initializing state vector
+  ekf_.x_ = VectorXd(4);
+
+  // Initializing noise values for the Process Covariance matrix
   noise_ax = 9;
   noise_ay = 9;
 
@@ -64,62 +68,51 @@ FusionEKF::FusionEKF() {
  */
 FusionEKF::~FusionEKF() {}
 
-void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
+void FusionEKF::ProcessFirstMeasurement(const MeasurementPackage &measurement_pack) {
   /**
-   * Initialization
-   */
-  if (!is_initialized_) {
-    /**
-     * TODO: Initialize the state ekf_.x_ with the first measurement.
-     * TODO: Create the covariance matrix.
-     * You'll need to convert radar from polar to cartesian coordinates.
+     * Initializing the state ekf_.x_ with the first measurement.
      */
 
-    // first measurement
-    cout << "EKF: " << endl;
-    ekf_.x_ = VectorXd(4);
-    ekf_.x_ << 0.8, 0.6, 5.1, 1.8;
+  // first measurement
+  cout << "EKF: " << endl;
+  ekf_.x_ = VectorXd(4);
+  ekf_.x_ << 0.8, 0.6, 5.1, 1.8;
 
-    if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-      cout << "Radar First Measurement" << endl;
-      // TODO: Convert radar from polar to cartesian coordinates 
-      //         and initialize state.
-      float rho = measurement_pack.raw_measurements_(0);
-      float theta = measurement_pack.raw_measurements_(1);
-      float rhodot = measurement_pack.raw_measurements_(2);
+  if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+    // Convert radar from polar to cartesian coordinates 
+    //         and initialize state. I am referring to phi as theta.
+    float rho = measurement_pack.raw_measurements_(0);
+    float theta = measurement_pack.raw_measurements_(1);
+    float rhodot = measurement_pack.raw_measurements_(2);
 
-      ekf_.x_(0) = rho * cos(theta);
-      ekf_.x_(1) = rho * sin(theta);
-      ekf_.x_(2) = rhodot * cos(theta);
-      ekf_.x_(3) = rhodot * sin(theta);
+    // Initialize state
+    ekf_.x_(0) = rho * cos(theta);
+    ekf_.x_(1) = rho * sin(theta);
+    ekf_.x_(2) = rhodot * cos(theta);
+    ekf_.x_(3) = rhodot * sin(theta);
 
-      cout << "Radar First Measurement completed" << endl;
-    }
-    else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
-      cout << "Laser First Measurement" << endl;
-      // TODO: Initialize state.
-      ekf_.x_(0) = measurement_pack.raw_measurements_(0);
-      ekf_.x_(1) = measurement_pack.raw_measurements_(1);
-      cout << "Laser First Measurement Completed" << endl;
-    }
-
-    previous_timestamp_ = measurement_pack.timestamp_;
-
-    // done initializing, no need to predict or update
-    is_initialized_ = true;
-    return;
+    cout << "Radar First Measurement completed" << endl;
+  }
+  else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
+    // Initialize state.
+    ekf_.x_(0) = measurement_pack.raw_measurements_(0);
+    ekf_.x_(1) = measurement_pack.raw_measurements_(1);
+    cout << "Laser First Measurement Completed" << endl;
   }
 
-  /**
-   * Prediction
-   */
-  cout << "Prediction" << endl;
+  previous_timestamp_ = measurement_pack.timestamp_;
 
+  // done initializing, no need to predict or update
+  is_initialized_ = true;
+}
+
+void FusionEKF::InitializeEkfForPrediction(const MeasurementPackage &measurement_pack) {
   // compute the time elapsed between the current and previous measurements
   // dt - expressed in seconds
   float dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1000000.0;
   previous_timestamp_ = measurement_pack.timestamp_;
 
+  // Pre-computed values
   float dt_2 = dt * dt;
   float dt_3 = dt_2 * dt;
   float dt_4 = dt_3 * dt;
@@ -128,52 +121,49 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   ekf_.F_(0, 2) = dt;
   ekf_.F_(1, 3) = dt;
 
-  // set the process covariance matrix Q
+  // Initialize the process covariance matrix Q
   ekf_.Q_ = MatrixXd(4, 4);
   ekf_.Q_ <<  dt_4/4*noise_ax, 0, dt_3/2*noise_ax, 0,
          0, dt_4/4*noise_ay, 0, dt_3/2*noise_ay,
          dt_3/2*noise_ax, 0, dt_2*noise_ax, 0,
          0, dt_3/2*noise_ay, 0, dt_2*noise_ay;
+}
 
+void FusionEKF::InitializeEkfForUpdate(const MeasurementPackage &measurement_pack) {
+  if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+    ekf_.H_ = tools.CalculateJacobian(ekf_.x_);
+    ekf_.R_ = R_radar_;
+  } else {
+    ekf_.H_ = H_laser_;
+    ekf_.R_ = R_laser_;
+  }
+}
+
+void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
+  /**
+   * Initialization
+   */
+  if (!is_initialized_) {
+    ProcessFirstMeasurement(measurement_pack);
+    return;
+  }
 
   /**
-   * TODO: Update the state transition matrix F according to the new elapsed time.
-   * Time is measured in seconds.
-   * TODO: Update the process noise covariance matrix.
-   * Use noise_ax = 9 and noise_ay = 9 for your Q matrix.
+   * Prediction
    */
-
+  InitializeEkfForPrediction(measurement_pack);
   ekf_.Predict();
-
   cout << "Prediction completed" << endl;
 
   /**
    * Update
    */
-  cout << "Update" << endl;
-
-  /**
-   * TODO:
-   * - Use the sensor type to perform the update step.
-   * - Update the state and covariance matrices.
-   */
-
+  InitializeEkfForUpdate(measurement_pack);
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-    // TODO: Radar updates
-    cout << "Assigning Jacobian" << endl;
-    ekf_.H_ = tools.CalculateJacobian(ekf_.x_);
-    cout << "Assigning R_radar" << endl;
-    ekf_.R_ = R_radar_;
     ekf_.UpdateEKF(measurement_pack.raw_measurements_);
   } else {
-    // TODO: Laser updates
-    cout << "Assigning H_laser" << endl;
-    ekf_.H_ = H_laser_;
-    cout << "Assigning R_laser" << endl;
-    ekf_.R_ = R_laser_;
     ekf_.Update(measurement_pack.raw_measurements_);
   }
-
   cout << "Update completed" << endl;
 
   // print the output

@@ -65,6 +65,10 @@ class KalmanFilter {
   Eigen::MatrixXd R_;
 
  private:
+  /*
+   * Adjusts the theta component of the given vector y, such that its value always lies between -pi and pi radians
+   * @param y The vector containing theta as its second component
+   */
   void AdjustTheta(Eigen::VectorXd &y); 
 };
 
